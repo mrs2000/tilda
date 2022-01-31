@@ -1,0 +1,27 @@
+{
+  "name": "mrssoft/tilda",
+  "version": "1.0.0",
+  "description": "Automatic integration of the project on Tilda with the site",
+  "keywords": [
+    "yii2",
+    "extension",
+    "tilda",
+    "api"
+  ],
+  "type": "yii2-extension",
+  "authors": [
+    {
+      "name": "Melnikov Ruslan",
+      "email": "mrs2000@inbox.ru"
+    }
+  ],
+  "require": {
+    "php": "~8",
+    "yiisoft/yii2": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "mrssoft\\tilda\\": "src/"
+    }
+  }
+}
