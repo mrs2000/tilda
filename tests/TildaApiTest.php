@@ -4,7 +4,7 @@ namespace tests;
 
 use mrssoft\tilda\TildaApi;
 
-class TildaApiTest extends \PHPUnit\Framework\TestCase
+final class TildaApiTest extends \PHPUnit\Framework\TestCase
 {
     protected array $params = [];
 
@@ -19,7 +19,7 @@ class TildaApiTest extends \PHPUnit\Framework\TestCase
     {
         $this->params = $this->loadParams();
         $this->api = new TildaApi($this->params);
-        $this->api->cacheDuration = 0;
+        $this->api->cache = false;
     }
 
     public function testLoadPageHtml()

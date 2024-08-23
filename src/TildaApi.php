@@ -2,10 +2,10 @@
 
 namespace mrssoft\tilda;
 
-use Yii;
 use yii\base\Component;
-use yii\base\ErrorException;
+use yii\caching\CacheInterface;
 use yii\caching\TagDependency;
+use yii\di\Instance;
 use yii\web\NotFoundHttpException;
 use yii\web\View;
 
@@ -17,27 +17,31 @@ class TildaApi extends Component
 
     public ?int $projectId;
 
-    public int $cacheDuration = 86400;
+    public ?int $cacheDuration = null;
 
-    /**
-     * @param View|null $view
-     * @param int|null $pageId
-     * @param int|null $projectId
-     * @return string|null
-     * @throws ErrorException
-     * @throws NotFoundHttpException
-     * @throws \yii\base\InvalidConfigException
-     */
+    public string|bool|CacheInterface $cache = 'cache';
+
+    public string $cacheTag = 'tilda-page';
+
+    public function init(): void
+    {
+        parent::init();
+
+        if ($this->cache) {
+            $this->cache = Instance::ensure($this->cache, CacheInterface::class);
+        }
+    }
+
     public function pageHtml(?View $view, ?int $pageId = null, int $projectId = null): ?string
     {
         $data = $this->page($pageId, $projectId);
         if ($data) {
             if ($view) {
                 foreach ($data['js'] as $js) {
-                    $view->registerJsFile($js['from'], ['position' => View::POS_HEAD]);
+                    $view->registerJsFile($js, ['position' => View::POS_HEAD]);
                 }
                 foreach ($data['css'] as $css) {
-                    $view->registerCssFile($css['from']);
+                    $view->registerCssFile($css);
                 }
             }
 
@@ -47,22 +51,17 @@ class TildaApi extends Component
         return null;
     }
 
-    /**
-     * @param int|null $pageId
-     */
     public function clearCache(?int $pageId): void
     {
-        if ($pageId) {
-            Yii::$app->cache->delete($this->cacheKey($pageId));
-        } else {
-            TagDependency::invalidate(Yii::$app->cache, 'tilda-page');
+        if ($this->cache) {
+            if ($pageId) {
+                $this->cache->delete($this->cacheKey($pageId));
+            } else {
+                TagDependency::invalidate($this->cache, $this->cacheTag);
+            }
         }
     }
 
-    /**
-     * @param int $pageId
-     * @return string
-     */
     private function cacheKey(int $pageId): string
     {
         return 'tildaPage' . $this->projectId . $pageId;
@@ -70,24 +69,14 @@ class TildaApi extends Component
 
     /**
      * Получить данные Tilda страницы
-     * @param int|null $pageId
-     * @param int|null $projectId
-     * @return array|null
-     * @throws ErrorException
-     * @throws NotFoundHttpException
      */
     public function page(?int $pageId = null, int $projectId = null): ?array
     {
         $projectId = $projectId ?? $this->projectId;
 
-        $result = $this->cacheDuration ? Yii::$app->cache->get($this->cacheKey($pageId)) : false;
+        $result = $this->cache ? $this->cache->get($this->cacheKey($pageId)) : false;
 
         if ($result === false) {
-
-            $project = $this->request('getprojectexport', $projectId);
-            if ($project === null) {
-                throw new ErrorException("Error load project $projectId");
-            }
 
             //Страница не указана - определить первую страницу проекта
             if ($pageId === null) {
@@ -98,19 +87,21 @@ class TildaApi extends Component
                 $pageId = $pages[0]['id'];
             }
 
-            $pageHtml = $this->request('getpage', null, $pageId);
-            if ($pageHtml === null) {
+            $response = $this->request('getpage', null, $pageId);
+            if ($response === null) {
                 throw new NotFoundHttpException("Error load project $projectId page $pageId");
             }
 
             $result = [
-                'js' => $project['js'],
-                'css' => $project['css'],
-                'html' => $pageHtml['html'],
+                'js' => $response['js'],
+                'css' => $response['css'],
+                'html' => $response['html'],
             ];
 
-            if ($this->cacheDuration) {
-                Yii::$app->cache->set($this->cacheKey($pageId), $result, $this->cacheDuration, new TagDependency(['tags' => 'tilda-page']));
+            if ($this->cache && $this->cacheDuration !== null) {
+                $this->cache->set($this->cacheKey($pageId), $result, $this->cacheDuration, new TagDependency([
+                    'tags' => $this->cacheTag
+                ]));
             }
         }
 
@@ -119,12 +110,6 @@ class TildaApi extends Component
 
     /**
      * http://help-ru.tilda.ws/api
-     *
-     * @param string $command
-     * @param int|null $projectId
-     * @param int|null $pageId
-     * @return array|null
-     * @noinspection HttpUrlsUsage
      */
     private function request(string $command, ?int $projectId, int $pageId = null): ?array
     {
@@ -135,12 +120,12 @@ class TildaApi extends Component
             'pageid' => $pageId,
         ];
 
-        $url = "http://api.tildacdn.info/v1/$command/?" . http_build_query($params);
+        $url = "https://api.tildacdn.info/v1/$command/?" . http_build_query($params);
         $response = file_get_contents($url);
 
         if ($response) {
             $data = json_decode($response, true);
-            if ($data['status'] == 'FOUND') {
+            if ($data['status'] === 'FOUND') {
                 return $data['result'];
             }
         }

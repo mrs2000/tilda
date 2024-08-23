@@ -4,8 +4,11 @@ Yii2 component
 
 API https://help-ru.tilda.cc/api
 
+Usage
+--
+
 ```php
-$tilda = new TildaApi([
+$tilda = new \mrssoft\tilda\TildaApi([
     'publicKey' => '',
     'secretKey' => '',
     'projectId' => 1111111,
@@ -16,5 +19,5 @@ $tilda = new TildaApi([
 $html = $tilda->pageHtml($this->view, $tildaPageId);
 
 //Clear cache
-$tilda->clearCache($tildaPageId)
+$tilda->clearCache($tildaPageId);
 ```

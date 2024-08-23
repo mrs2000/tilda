@@ -1,6 +1,5 @@
 {
   "name": "mrssoft/tilda",
-  "version": "1.0.0",
   "description": "Automatic integration of the project on Tilda with the site",
   "keywords": [
     "yii2",
